@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+
+# Generated outputs. The source PDF in data/ is intentionally NOT ignored -
+# committing it makes the repo self-demoing: clone, install, run.
+data/*.duckdb
+data/*.duckdb.wal
+data/*.json
+data/report.html
+!data/.gitkeep
+.cache/
