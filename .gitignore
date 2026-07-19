@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+
+# Personal planning docs - not for the repo
+*Checklist.docx
