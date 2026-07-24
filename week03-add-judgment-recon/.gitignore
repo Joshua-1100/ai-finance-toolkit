@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# The synthetic corpus in data/ is intentionally NOT ignored - committing it
+# makes the repo self-demoing, and it is generated, not sensitive.
+# Reconciliation output is:
+output/
+*.recon.csv
+*.recon.html

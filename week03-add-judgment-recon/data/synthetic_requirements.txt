@@ -1,0 +1,69 @@
+week03 synthetic data requirements
+create general ledger file "general_ledger.csv" AKA glfile
+create bank file "bank.csv" AKA bankfile
+for both files dates in format yyyy-mm-dd. Test dates to range from 2026-05-01 to 2026-05-31
+for both files amount and posted_amount data are numbers, fixed to 2 decimals
+glfile headers: gl_date, amount, main_memo, line_memo
+	main_memo 100 character max
+	line_memo 150 character max
+bankfile header: posted_date, posted_amount, messy_memo
+	messy_memo 250 character max
+
+When not specified below, dates are random within range rules above, memos are random concatenation president first name and a random number 2 to 14 digits long
+
+Test Data to reconcile
+Set 1 - LowHangingFruit
+50 rows in each file
+random amounts match exactly, random dates match exactly, line_memo and messy_memo match exactly
+glfile main_memo all read random vegetable president names like "Celery Washington"
+line_memo and messy_memo are like "Inv 6060842" but make the number digits random and length of number random from 2 to 10 digits
+
+Set 2 - Dateshifts slight
+50 rows in each file
+random amounts match exactly, 25 cases of random dates where the gl_date is ahead 1 -3 days and 25 case where the gl_date is behind 1-3 days, line_memo and messy_memo match exactly
+glfile main_memo all read random fruit president names like "Apple Washington"
+line_memo and messy_memo like in Set 1
+
+Set 3 - Dateshifts widely
+10 rows in each file
+random amounts match exactly, dates random and at least 14 days apart, line_memo and messy_memo match exactly
+glfile main_memo all read random lemon type president names like "Meyer Washington"
+line_memo and messy_memo like in Set 1
+
+Set 4 - Imperfect Identity
+10 rows where amounts and dates match but the line_memo and messy_memo are only similar like "Inv 000012345" and "I12345" or 12345
+main_memo are random adjectives and presidents like "Happy Washington"
+
+Set 5 - Imperfect Date_Identity
+10 rows where amounts match, dates do not match, line_memo and messy_memo are like in set 4
+main_memo are random adverbs and presidents like "Quickly Washington"
+
+Set 6 - GLmany Bankone
+Dates and memos match
+5 pairs in glfile (10 row) each sum to match 5 rows in bankfile
+5 sets of 3 rows in glfile (15 rows total) each sum to match 5 rows in bankfile
+5 sets of 5 rows in glfile (25 rows total) each sum to match 5 rows in bankfile
+main_memo are random angel names and presidents like "Gabriel Washington"
+
+Set 7 - GLone Bankmany
+like Set 6 except:
+5 pairs in bankfile (10 row) each sum to match 5 rows in glfile
+5 sets of 3 rows in bankfile (15 rows total) each sum to match 5 rows in glfile
+5 sets of 5 rows in bankfile (25 rows total) each sum to match 5 rows in glfile
+
+Set 8 - NoMatch
+3 rows in each file where amounts, dates and memos do not match
+all memos are random names of presidents backwards like from Bush to Hsub
+
+Set 9 GLvoid
+2 rows in glfile with one amount 100 and the other -100
+all else matches
+
+Set 10 Bankvoid
+2 rows in bankfile with one amount 300 and the other -300
+all else matches
+
+Set 11 CloseToMatch
+5 rows in each file
+amounts differ by 0.01 to 0.09
+all else matches
