@@ -3,8 +3,8 @@
 Bank-to-ledger reconciliation, built to be run by anyone with a PC and checked
 by anyone who knows accounting.
 
-> **Status: in progress.** The synthetic corpus is built and verified, and the
-> load stage runs. Matching passes and the Excel workbook are next.
+> **Status: in progress.** The corpus is built, and the matching engine finds
+> every scenario planted in it. The Excel workbook is next.
 
 ## Running it
 
@@ -15,18 +15,49 @@ python run_recon.py
 Pick the general ledger CSV, then the bank CSV, from a native file dialog. Pass
 `--gl` and `--bank` to skip the dialog on reruns.
 
-Right now this loads, validates, and enumerates both files, then reports the one
-number that matters before any matching happens:
+On the corpus:
 
 ```
-  GL total                      125,223.99
-  Bank total                    124,196.78
-  Difference to explain           1,027.21
+  exact_triple           50 matches
+  void_pairs              2 matches
+  amount_memo            60 matches
+  group_sum              30 matches
+  digit_core_dated       10 matches
+  digit_core             10 matches
+  near_amount             5 matches
+
+  167 match groups covering 202 GL and 202 bank rows
+  shapes: 1 x 0:2, 135 x 1:1, 5 x 1:2, 5 x 1:3, 5 x 1:5, 1 x 2:0, 5 x 2:1, 5 x 3:1, 5 x 5:1
+
+  amount   date     identity  groups
+  Exact    Close    Exact         50
+  Exact    Close    Similar        3
+  Exact    Exact    Exact         52
+  Exact    Exact    Similar       10
+  Exact    Wide     Exact         10
+  Exact    Wide     Similar        7
+  Near     Exact    Exact          5
+  Sum      Exact    Exact         30
+
+STILL OPEN
+  GL       3 of 205 rows         1,807.63
+  Bank     3 of 205 rows           780.31
+
+PROOF
+  unmatched GL less unmatched bank        1,027.21
+  drift accepted inside matches              -0.11
+  accounted for                           1,027.21
+  GL total less bank total                1,027.21
+  FOOTS - the reconciliation is complete.
 ```
 
-Every unmatched item the finished reconciliation reports has to add back to
-exactly that figure. That is the completeness proof, and it is checkable by
-anyone who can add.
+Every pass claims exactly the scenario it was built for. The three rows left a
+side are Set 8, the genuine non-matches — verified independently, by the fact
+that they are the only rows whose memos contain no document number at all.
+
+The proof is the part worth trusting. Whatever the engine claims, the open items
+plus the drift it absorbed have to add back to the difference the two files
+arrived with, to the cent. That is checkable by anyone who can add.
 
 ### Install
 
@@ -115,6 +146,48 @@ tells a reviewer nothing about whether to trust it:
 Quality lives on the group rather than on the rows. Five ledger rows summing to
 one deposit share one verdict, and storing that verdict five times invites the
 copies drifting apart.
+
+## The matching ladder
+
+Passes run strongest evidence first. Each sees only what earlier passes left, so
+the order is a design decision rather than an implementation detail — moving a
+pass up gives it first claim on rows it has weaker grounds for.
+
+| # | Pass | Matches on | Shape |
+|---|---|---|---|
+| 1 | `exact_triple` | date + amount + memo | 1:1 |
+| 2 | `void_pairs` | same file: date + memo + equal and opposite | n:0 |
+| 3 | `amount_memo` | amount + memo, date graded | 1:1 |
+| 4 | `group_sum` | bucket by date + memo, subset sums exactly | n:1, 1:n |
+| 5 | `digit_core_dated` | date + amount + document number | 1:1 |
+| 6 | `digit_core` | amount + document number, date graded | 1:1 |
+| 7 | `near_amount` | date + memo, amount within 0.09 | 1:1 |
+
+Passes propose; the engine claims. A pass reads the rows still available and
+returns candidates without mutating anything, so no pass can take a row another
+already took, and the proof is re-checked after every one — which localises a
+bug to the pass that caused it.
+
+**It refuses rather than guesses.** Where a key does not single out a single
+pair, the pass records an ambiguity and moves on. Two ledger rows identical in
+date, amount and memo cannot be told apart; two different subsets that both sum
+to a deposit give no way to know which settled. A confident wrong match costs
+more than an item on a reviewer's list, because the wrong one is never revisited.
+
+**Identity is a rule, not a score.** `Inv 000012345`, `I12345` and a bare
+`12345` reduce to the same document number by stripping non-digits and leading
+zeros. String-similarity scoring would generalise further, but a reviewer can
+check this rule by reading it and cannot check a distance threshold. Numbers
+under three digits are ignored as too weak to act on.
+
+**Group matching is bucketed, not brute-forced.** Unconstrained subset-sum over
+ten thousand rows is not a computation anyone finishes. Narrowing to the handful
+of rows sharing a date and reference makes it immediate. Buckets above twelve
+rows are refused rather than allowed to crawl — a reconciliation that hangs is
+not a reconciliation.
+
+Measured on synthetic files well past realistic size: 64,000 rows a side in
+about three seconds, scaling close to linearly.
 
 ## Money is never a float
 

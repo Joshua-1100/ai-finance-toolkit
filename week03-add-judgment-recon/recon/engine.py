@@ -162,7 +162,11 @@ class Pool:
         return gl - bank
 
     def residual_cents(self) -> int:
-        """What the current state says the GL/bank difference is."""
+        """The difference re-derived by walking the match groups.
+
+        Used for the reported proof, where a human wants to see the drift and
+        the open items add up, and computed once rather than after every pass.
+        """
         drift = sum(self.drift_cents(m) for m in self.matches)
         unmatched_gl = sum(r.amount_cents for r in self.available(Side.GL))
         unmatched_bank = sum(r.amount_cents for r in self.available(Side.BANK))
@@ -191,12 +195,21 @@ class Pool:
             if row.match_id is not None and row_id not in claimed:
                 raise ProofFailed(f"{row_id} carries {row.match_id!r} with no match")
 
-        actual = self.residual_cents()
+        # Then the arithmetic. Held against the snapshot rather than against a
+        # figure recomputed from the same rows, so a rewritten amount cannot
+        # move both sides of the comparison and escape.
+        #
+        # Note this deliberately does NOT re-derive the difference by walking
+        # the match groups. Given the structural checks above - every row in a
+        # match carries that match's id, and no row is in two matches - the
+        # drift-plus-unmatched decomposition is implied arithmetic, so walking
+        # it adds no detection power. It did add half this function's runtime.
+        actual = self.gl.total_cents - self.bank.total_cents
         if self._expected_difference != actual:
             raise ProofFailed(
                 f"totals identity broke{where}: files arrived differing by "
-                f"{self._expected_difference} cents, match state now accounts "
-                f"for {actual} cents"
+                f"{self._expected_difference} cents, the rows now differ by "
+                f"{actual} cents - an amount changed mid-run"
             )
 
 

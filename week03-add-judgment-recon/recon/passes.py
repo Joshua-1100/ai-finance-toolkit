@@ -12,20 +12,82 @@ by evidence strength keeps that from happening.
 
 from __future__ import annotations
 
+import itertools
 from collections import defaultdict
-from typing import Sequence
+from typing import Callable, Sequence
 
 from .engine import Ambiguity, MatchPass, PassResult, Proposal
-from .identity import normalize_memo
+from .identity import memo_digit_core, normalize_memo
 from .model import AmountQuality, DateQuality, IdentityQuality, LedgerRow
+from .money import format_cents
 
 
 def _index(rows: Sequence[LedgerRow], key) -> dict[tuple, list[LedgerRow]]:
-    """Bucket rows by a key function, preserving row order within a bucket."""
+    """Bucket rows by a key function, preserving row order within a bucket.
+
+    A key function returning None excludes that row - which is how the fuzzy
+    passes skip memos with no usable document number.
+    """
     buckets: dict[tuple, list[LedgerRow]] = defaultdict(list)
     for row in rows:
-        buckets[key(row)].append(row)
+        k = key(row)
+        if k is not None:
+            buckets[k].append(row)
     return buckets
+
+
+# The grade callback returns the three quality axes plus a note, given the
+# matched pair. Each pass decides what its own evidence is worth.
+GradeFn = Callable[
+    [LedgerRow, LedgerRow],
+    "tuple[AmountQuality, DateQuality, IdentityQuality, str]",
+]
+
+
+def _claim_unique_pairs(
+    gl_rows: Sequence[LedgerRow],
+    bank_rows: Sequence[LedgerRow],
+    key,
+    pass_name: str,
+    describe: Callable[[tuple], str],
+    grade: GradeFn,
+) -> PassResult:
+    """Index both sides, claim where exactly one row a side shares a key.
+
+    The shape every one-to-one pass wants: agree on the key, refuse where the
+    key does not single out a pair.
+    """
+    gl_index = _index(gl_rows, key)
+    bank_index = _index(bank_rows, key)
+
+    result = PassResult()
+    for k in sorted(gl_index.keys() & bank_index.keys()):
+        gl_bucket, bank_bucket = gl_index[k], bank_index[k]
+
+        if len(gl_bucket) > 1 or len(bank_bucket) > 1:
+            result.ambiguities.append(Ambiguity(
+                pass_name=pass_name,
+                key=describe(k),
+                gl_ids=[r.row_id for r in gl_bucket],
+                bank_ids=[r.row_id for r in bank_bucket],
+                reason=(
+                    f"{len(gl_bucket)} GL and {len(bank_bucket)} bank rows share "
+                    "this key - it does not single out a pair, so not claimed"
+                ),
+            ))
+            continue
+
+        gl_row, bank_row = gl_bucket[0], bank_bucket[0]
+        amount, date_q, identity, note = grade(gl_row, bank_row)
+        result.proposals.append(Proposal(
+            gl_ids=[gl_row.row_id],
+            bank_ids=[bank_row.row_id],
+            amount=amount,
+            date=date_q,
+            identity=identity,
+            note=note,
+        ))
+    return result
 
 
 # --- pass 1: exact on all three axes -------------------------------------
@@ -231,6 +293,266 @@ def amount_memo(
     return result
 
 
+# --- pass 4: a group on one side summing to one row on the other ---------
+
+# 2**12 is four thousand subsets, which is instant. Beyond that the search is
+# refused rather than allowed to crawl: a bucket of thirty rows is 10**9
+# combinations, and a reconciliation that hangs is not a reconciliation.
+MAX_SUBSET_ROWS = 12
+
+
+def _subsets_summing_to(
+    rows: Sequence[LedgerRow], target: int,
+) -> list[tuple[LedgerRow, ...]] | None:
+    """Every subset of two or more rows summing exactly to target.
+
+    Returns None when the bucket is too large to search exhaustively.
+
+    Single rows are excluded because a one-to-one match at this amount would
+    already have been claimed by an earlier pass.
+    """
+    if sum(r.amount_cents for r in rows) == target and all(
+        r.amount_cents > 0 for r in rows
+    ):
+        # All amounts positive means every proper subset sums to strictly less
+        # than the whole, so the full set is the only answer and there is no
+        # search to do. Mixed signs break that guarantee and fall through.
+        return [tuple(rows)]
+
+    if len(rows) > MAX_SUBSET_ROWS:
+        return None
+
+    found: list[tuple[LedgerRow, ...]] = []
+    for size in range(2, len(rows) + 1):
+        for combo in itertools.combinations(rows, size):
+            if sum(r.amount_cents for r in combo) == target:
+                found.append(combo)
+    return found
+
+
+def group_sum(
+    gl_rows: Sequence[LedgerRow], bank_rows: Sequence[LedgerRow],
+) -> PassResult:
+    """One deposit covering several ledger lines, or one entry split across
+    several bank items.
+
+    Bucketed by date and memo first, which is what makes this tractable.
+    Unconstrained subset-sum over ten thousand rows is not a computation anyone
+    finishes; over the handful of rows sharing a date and a reference it is
+    immediate.
+
+    Only the clean shapes are claimed - one row on one side against two or more
+    on the other. A bucket with several rows on both sides has no determined
+    answer, and neither does one where two different subsets reach the target,
+    so both are flagged.
+    """
+    def key(row: LedgerRow) -> tuple:
+        return (row.txn_date, normalize_memo(row.memo))
+
+    gl_index = _index(gl_rows, key)
+    bank_index = _index(bank_rows, key)
+
+    result = PassResult()
+    for k in sorted(gl_index.keys() & bank_index.keys()):
+        gl_bucket, bank_bucket = gl_index[k], bank_index[k]
+        date, memo = k
+        bucket_key = f"{date} / {memo}"
+
+        if len(bank_bucket) == 1 and len(gl_bucket) >= 2:
+            many, one, many_is_gl = gl_bucket, bank_bucket[0], True
+        elif len(gl_bucket) == 1 and len(bank_bucket) >= 2:
+            many, one, many_is_gl = bank_bucket, gl_bucket[0], False
+        elif len(gl_bucket) >= 2 and len(bank_bucket) >= 2:
+            result.ambiguities.append(Ambiguity(
+                pass_name="group_sum",
+                key=bucket_key,
+                gl_ids=[r.row_id for r in gl_bucket],
+                bank_ids=[r.row_id for r in bank_bucket],
+                reason=(
+                    f"{len(gl_bucket)} GL and {len(bank_bucket)} bank rows share "
+                    "a date and memo - which rows group with which is not "
+                    "determined, so not claimed"
+                ),
+            ))
+            continue
+        else:
+            continue
+
+        subsets = _subsets_summing_to(many, one.amount_cents)
+        many_ids = [r.row_id for r in many]
+
+        if subsets is None:
+            result.ambiguities.append(Ambiguity(
+                pass_name="group_sum",
+                key=bucket_key,
+                gl_ids=many_ids if many_is_gl else [one.row_id],
+                bank_ids=[one.row_id] if many_is_gl else many_ids,
+                reason=(
+                    f"{len(many)} rows share a date and memo, more than the "
+                    f"{MAX_SUBSET_ROWS} this pass will search exhaustively - "
+                    "not claimed"
+                ),
+            ))
+            continue
+
+        if not subsets:
+            continue
+
+        if len(subsets) > 1:
+            result.ambiguities.append(Ambiguity(
+                pass_name="group_sum",
+                key=bucket_key,
+                gl_ids=many_ids if many_is_gl else [one.row_id],
+                bank_ids=[one.row_id] if many_is_gl else many_ids,
+                reason=(
+                    f"{len(subsets)} different combinations of these rows sum to "
+                    f"{one.amount} - which one settled is not determined, so not "
+                    "claimed"
+                ),
+            ))
+            continue
+
+        group = list(subsets[0])
+        side = "GL" if many_is_gl else "bank"
+        result.proposals.append(Proposal(
+            gl_ids=[r.row_id for r in group] if many_is_gl else [one.row_id],
+            bank_ids=[one.row_id] if many_is_gl else [r.row_id for r in group],
+            amount=AmountQuality.SUM,
+            date=DateQuality.EXACT,
+            identity=IdentityQuality.EXACT,
+            note=f"{len(group)} {side} rows sum to {one.amount}",
+        ))
+    return result
+
+
+# --- passes 5 and 6: the same document, differently written --------------
+
+def digit_core_dated(
+    gl_rows: Sequence[LedgerRow], bank_rows: Sequence[LedgerRow],
+) -> PassResult:
+    """Same date, same amount, and the same document number inside the memo.
+
+    'Inv 000012345' against 'I12345'. The amount and date agreeing exactly does
+    most of the work here; the digit core is what turns a coincidence into an
+    identification.
+    """
+    def key(row: LedgerRow) -> tuple | None:
+        core = memo_digit_core(row.memo)
+        return None if core is None else (row.txn_date, row.amount_cents, core)
+
+    return _claim_unique_pairs(
+        gl_rows, bank_rows, key, pass_name="digit_core_dated",
+        describe=lambda k: f"{k[0]} / {k[1]} / core {k[2]}",
+        grade=lambda g, b: (
+            AmountQuality.EXACT, DateQuality.EXACT, IdentityQuality.SIMILAR,
+            f"same document number, memos differ: {g.memo!r} vs {b.memo!r}",
+        ),
+    )
+
+
+def digit_core(
+    gl_rows: Sequence[LedgerRow],
+    bank_rows: Sequence[LedgerRow],
+    close_days: int = CLOSE_DAYS,
+) -> PassResult:
+    """Same amount and document number, date free and graded.
+
+    The weakest identity evidence the ladder acts on, so it runs late and only
+    where the amount still agrees to the cent.
+    """
+    def key(row: LedgerRow) -> tuple | None:
+        core = memo_digit_core(row.memo)
+        return None if core is None else (row.amount_cents, core)
+
+    def grade(g: LedgerRow, b: LedgerRow):
+        gap = (g.txn_date - b.txn_date).days
+        direction = "after" if gap > 0 else "before"
+        return (
+            AmountQuality.EXACT,
+            date_quality(gap, close_days),
+            IdentityQuality.SIMILAR,
+            f"same document number, memos differ: {g.memo!r} vs {b.memo!r}; "
+            f"GL {abs(gap)} day{'' if abs(gap) == 1 else 's'} {direction} bank",
+        )
+
+    return _claim_unique_pairs(
+        gl_rows, bank_rows, key, pass_name="digit_core",
+        describe=lambda k: f"{k[0]} / core {k[1]}",
+        grade=grade,
+    )
+
+
+# --- pass 7: the amount is off by a rounding artifact --------------------
+
+# Deliberately tiny. This pass exists for pennies lost to rounding or a
+# conversion, not for genuine differences - an amount off by more than this is
+# a discrepancy a human should see, not one a tool should absorb.
+NEAR_TOLERANCE_CENTS = 9
+
+
+def near_amount(
+    gl_rows: Sequence[LedgerRow],
+    bank_rows: Sequence[LedgerRow],
+    tolerance: int = NEAR_TOLERANCE_CENTS,
+) -> PassResult:
+    """Same date, same memo, amount off by no more than a few cents.
+
+    The last and weakest pass. It requires the date and memo to agree exactly,
+    because once the amount is allowed to move, everything else has to hold
+    still. Whatever difference it accepts is carried into the proof as drift, so
+    the reconciliation still foots to the cent.
+    """
+    def key(row: LedgerRow) -> tuple:
+        return (row.txn_date, normalize_memo(row.memo))
+
+    gl_index = _index(gl_rows, key)
+    bank_index = _index(bank_rows, key)
+
+    result = PassResult()
+    for k in sorted(gl_index.keys() & bank_index.keys()):
+        gl_bucket, bank_bucket = gl_index[k], bank_index[k]
+        date, memo = k
+
+        candidates = [
+            (g, b)
+            for g in gl_bucket
+            for b in bank_bucket
+            if 0 < abs(g.amount_cents - b.amount_cents) <= tolerance
+        ]
+        if not candidates:
+            continue
+
+        if len(candidates) > 1 or len(gl_bucket) > 1 or len(bank_bucket) > 1:
+            result.ambiguities.append(Ambiguity(
+                pass_name="near_amount",
+                key=f"{date} / {memo}",
+                gl_ids=[r.row_id for r in gl_bucket],
+                bank_ids=[r.row_id for r in bank_bucket],
+                reason=(
+                    f"{len(candidates)} pairing(s) within {tolerance} cents among "
+                    f"{len(gl_bucket)} GL and {len(bank_bucket)} bank rows - which "
+                    "row absorbed the difference is not determined, so not claimed"
+                ),
+            ))
+            continue
+
+        gl_row, bank_row = candidates[0]
+        difference = gl_row.amount_cents - bank_row.amount_cents
+        result.proposals.append(Proposal(
+            gl_ids=[gl_row.row_id],
+            bank_ids=[bank_row.row_id],
+            amount=AmountQuality.NEAR,
+            date=DateQuality.EXACT,
+            identity=IdentityQuality.EXACT,
+            note=f"GL is {format_cents(abs(difference))} "
+                 f"{'over' if difference > 0 else 'under'} the bank amount",
+        ))
+    return result
+
+
+# The order is the design. Each pass sees only what the stronger ones left, so
+# moving an entry up the list gives it first claim on rows it has weaker
+# evidence for.
 DEFAULT_PASSES: list[MatchPass] = [
     MatchPass(
         name="exact_triple",
@@ -246,5 +568,25 @@ DEFAULT_PASSES: list[MatchPass] = [
         name="amount_memo",
         description="Same amount and memo, date graded by the gap",
         run=amount_memo,
+    ),
+    MatchPass(
+        name="group_sum",
+        description="A group on one side summing exactly to one row on the other",
+        run=group_sum,
+    ),
+    MatchPass(
+        name="digit_core_dated",
+        description="Same date and amount, same document number in the memo",
+        run=digit_core_dated,
+    ),
+    MatchPass(
+        name="digit_core",
+        description="Same amount and document number, date graded",
+        run=digit_core,
+    ),
+    MatchPass(
+        name="near_amount",
+        description="Same date and memo, amount within a few cents",
+        run=near_amount,
     ),
 ]

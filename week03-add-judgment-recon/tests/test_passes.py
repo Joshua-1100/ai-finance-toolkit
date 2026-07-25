@@ -175,22 +175,56 @@ def test_amount_memo_does_not_mutate_input():
 
 # --- the ladder on the corpus -------------------------------------------
 
-def test_ladder_claims_the_expected_sets(gl, bank):
-    """Sets 1, 2, 3, 9 and 10 - and nothing that belongs to a later pass."""
+def test_ladder_claims_every_planted_set(gl, bank):
+    """Each pass claims exactly the set it was built for, and nothing else."""
     result = reconcile(gl, bank)
     assert result.pass_counts == [
-        ("exact_triple", 50),   # set 1
-        ("void_pairs", 2),      # sets 9 and 10, one group each
-        ("amount_memo", 60),    # sets 2 and 3
+        ("exact_triple", 50),      # set 1
+        ("void_pairs", 2),         # sets 9 and 10, one group each
+        ("amount_memo", 60),       # sets 2 and 3
+        ("group_sum", 30),         # sets 6 and 7, 15 groups each way
+        ("digit_core_dated", 10),  # set 4
+        ("digit_core", 10),        # set 5
+        ("near_amount", 5),        # set 11
     ]
-    assert len(result.matches) == 112
+    assert len(result.matches) == 167
 
 
-def test_ladder_leaves_exactly_the_later_sets_open(gl, bank):
-    """93 a side: sets 4, 5, 6, 7, 8 and 11."""
+def test_ladder_leaves_only_the_genuine_non_matches(gl, bank):
+    """Set 8 is the only thing that should survive the whole ladder."""
     result = reconcile(gl, bank)
-    assert len(result.unmatched_gl) == 93
-    assert len(result.unmatched_bank) == 93
+    assert len(result.unmatched_gl) == 3
+    assert len(result.unmatched_bank) == 3
+
+
+def test_the_survivors_are_set_eight(gl, bank):
+    """Identified independently: set 8 memos are reversed names, so no digits."""
+    from recon.identity import memo_digit_core
+
+    result = reconcile(gl, bank)
+    for row in result.unmatched_gl + result.unmatched_bank:
+        assert memo_digit_core(row.memo) is None, row
+
+
+def test_ladder_group_shapes_match_the_corpus_design(gl, bank):
+    """Sets 6 and 7 planted five groups at each of sizes 2, 3 and 5, both ways."""
+    result = reconcile(gl, bank)
+    shapes = Counter(m.shape for m in result.matches if m.rule == "group_sum")
+    assert shapes == {
+        "2:1": 5, "3:1": 5, "5:1": 5,   # set 6, GL many
+        "1:2": 5, "1:3": 5, "1:5": 5,   # set 7, bank many
+    }
+
+
+def test_ladder_quality_axes_are_populated_as_designed(gl, bank):
+    result = reconcile(gl, bank)
+    by_amount = Counter(m.amount for m in result.matches)
+    assert by_amount[AmountQuality.SUM] == 30    # group matches
+    assert by_amount[AmountQuality.NEAR] == 5    # set 11 penny drifts
+    assert by_amount[AmountQuality.EXACT] == 132
+    identity = Counter(m.identity for m in result.matches)
+    assert identity[IdentityQuality.SIMILAR] == 20  # sets 4 and 5
+    assert identity[IdentityQuality.NONE] == 0
 
 
 def test_ladder_date_grading_splits_sets_two_and_three(gl, bank):
@@ -233,7 +267,8 @@ def test_ladder_proof_still_foots(gl, bank):
     unmatched_bank = sum(r.amount_cents for r in result.unmatched_bank)
     difference = result.gl.total_cents - result.bank.total_cents
     assert unmatched_gl - unmatched_bank + result.drift_cents == difference
-    assert result.drift_cents == 0  # no Near matches claimed yet
+    # Set 11's five penny differences, and nothing else, are absorbed as drift.
+    assert result.drift_cents == -11
 
 
 def test_ladder_claims_no_row_twice(gl, bank):

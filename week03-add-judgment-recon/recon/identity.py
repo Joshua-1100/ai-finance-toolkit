@@ -24,3 +24,35 @@ def normalize_memo(memo: str) -> str:
         'INV 6060842'
     """
     return _WHITESPACE.sub(" ", memo.strip()).upper()
+
+
+# A one or two digit core is weak evidence - plenty of unrelated documents
+# share the number 7. Three is the shortest run worth acting on, and even then
+# only alongside an exact amount.
+MIN_DIGIT_CORE = 3
+
+
+def memo_digit_core(memo: str) -> str | None:
+    """The document number inside a memo, stripped of everything decorative.
+
+    'Inv 000012345', 'I12345', '#12345' and a bare '12345' all name the same
+    invoice. Pulling out the digits and dropping leading zeros reduces them to
+    one comparable string.
+
+        >>> memo_digit_core("Inv 000012345")
+        '12345'
+        >>> memo_digit_core("I12345")
+        '12345'
+
+    Returns None when there is nothing worth comparing, which keeps memos with
+    no number - or only a short one - out of the fuzzy passes entirely. Chosen
+    over string-similarity scoring because a reviewer can check this rule by
+    reading it, and cannot check a distance threshold.
+    """
+    digits = "".join(c for c in memo if c.isdigit())
+    if not digits:
+        return None
+    core = digits.lstrip("0")
+    if len(core) < MIN_DIGIT_CORE:
+        return None
+    return core
