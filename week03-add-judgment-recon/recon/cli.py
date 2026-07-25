@@ -11,8 +11,9 @@ import sys
 from pathlib import Path
 
 from .engine import reconcile
+from .excel import OutputLocked, write_workbook
 from .load import LoadError, load_bank, load_gl
-from .pick import choose_csv
+from .pick import choose_csv, choose_save_path
 from .report import load_report, match_report
 
 
@@ -25,6 +26,14 @@ def build_parser() -> argparse.ArgumentParser:
     # so repeat runs and tests can skip the dialog entirely.
     parser.add_argument("--gl", type=Path, help="path to the general ledger CSV")
     parser.add_argument("--bank", type=Path, help="path to the bank CSV")
+    parser.add_argument(
+        "--out", type=Path,
+        help="where to write the workbook (default: alongside the ledger)",
+    )
+    parser.add_argument(
+        "--no-excel", action="store_true",
+        help="report to the console only, write nothing",
+    )
     return parser
 
 
@@ -55,6 +64,25 @@ def main(argv: list[str] | None = None) -> int:
 
     result = reconcile(gl, bank)
     print(match_report(result))
+
+    if args.no_excel:
+        return 0
+
+    out_path = args.out
+    if out_path is None:
+        default = Path(gl_path).parent / "reconciliation.xlsx"
+        # Only ask when the run was interactive to begin with. A scripted run
+        # that passed --gl and --bank should not stop for a dialog.
+        interactive = args.gl is None or args.bank is None
+        out_path = choose_save_path(default) if interactive else default
+
+    try:
+        written = write_workbook(result, out_path)
+    except OutputLocked as exc:
+        print(f"\n{exc}\n", file=sys.stderr)
+        return 3
+
+    print(f"  Workbook written to {written}\n")
     return 0
 
 

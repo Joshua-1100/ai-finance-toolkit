@@ -63,3 +63,33 @@ def choose_csv(title: str, initial_dir: Path | None = None) -> Path:
     if not path.is_file():
         raise SystemExit(f"Not a file: {path}")
     return path
+
+
+def choose_save_path(default: Path) -> Path:
+    """Ask where to save the workbook, defaulting to the suggested path.
+
+    Falls back to the default without asking when there is no dialog available,
+    since the run has already done its work by this point and losing it to a
+    missing tk install would be absurd.
+    """
+    if not _dialog_available():
+        return default
+
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        chosen = filedialog.asksaveasfilename(
+            title="Save the reconciliation workbook",
+            initialdir=str(default.parent),
+            initialfile=default.name,
+            defaultextension=".xlsx",
+            filetypes=[("Excel workbook", "*.xlsx")],
+        )
+    finally:
+        root.destroy()
+
+    return Path(chosen).expanduser() if chosen else default

@@ -10,7 +10,6 @@ import pytest
 from recon.engine import reconcile
 from recon.model import AmountQuality, DateQuality, IdentityQuality, Side
 from recon.passes import (
-    DEFAULT_PASSES,
     amount_memo,
     date_quality,
     exact_triple,

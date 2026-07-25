@@ -3,8 +3,8 @@
 Bank-to-ledger reconciliation, built to be run by anyone with a PC and checked
 by anyone who knows accounting.
 
-> **Status: in progress.** The corpus is built, and the matching engine finds
-> every scenario planted in it. The Excel workbook is next.
+> **Status: working end to end.** Pick two CSVs, get a reconciled Excel
+> workbook that proves it is complete.
 
 ## Running it
 
@@ -12,8 +12,33 @@ by anyone who knows accounting.
 python run_recon.py
 ```
 
-Pick the general ledger CSV, then the bank CSV, from a native file dialog. Pass
-`--gl` and `--bank` to skip the dialog on reruns.
+Pick the general ledger CSV, then the bank CSV, then where to save the workbook —
+all from native file dialogs. Pass `--gl`, `--bank` and `--out` to skip the
+dialogs on reruns, or `--no-excel` for the console report alone.
+
+## What you get
+
+[`data/reconciliation.xlsx`](data/reconciliation.xlsx) is committed as a worked
+example — the output of running the tool against the corpus in this repo. Open it
+beside [`data/non_reconciled.xlsx`](data/non_reconciled.xlsx), the same job done
+by hand, for the before and after.
+
+| Tab | What it holds |
+|---|---|
+| **Summary** | Control totals, what each pass claimed, and the proof |
+| **Reconciled** | Every matched row, banded by group, with the match quality |
+| **Exceptions** | What is still open — the list a Controller actually works |
+| **General Ledger** | The source file verbatim, plus the match each row landed in |
+| **Bank** | The same for the statement |
+
+An **Ambiguous** tab appears only when a pass declined to choose between
+candidates. Its absence means there was nothing to decline, not nothing to say.
+
+Amounts are written as numbers rather than text, so the workbook can be summed
+and filtered like any other. That means Excel holds them as floats — fine for
+display and totalling at two decimals, and not where any of the matching
+happened. Every comparison that decided anything was made in integer cents
+before the file existed.
 
 On the corpus:
 

@@ -4,7 +4,7 @@ the whole corpus."""
 from __future__ import annotations
 
 from datetime import date
-from typing import Iterable, Sequence
+from typing import Iterable
 
 from recon.model import LedgerFile, LedgerRow, Side
 

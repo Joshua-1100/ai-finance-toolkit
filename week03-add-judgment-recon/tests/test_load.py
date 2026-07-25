@@ -10,7 +10,6 @@ from recon.load import (
     BANK_SPEC,
     GL_SPEC,
     LoadError,
-    load_bank,
     load_gl,
     map_headers,
     normalize_header,
