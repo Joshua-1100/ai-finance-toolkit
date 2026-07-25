@@ -16,7 +16,7 @@ accounting identities, tested, and traceable back to its source.
 |---|---|---|---|
 | 01 | [**first-integration**](week01-first-integration/) | OAuth into a live accounting system, pull real ledger data into pandas | ✅ Shipped |
 | 02 | [**structure-the-mess**](week02-structure-the-mess/) | Turn a quarterly financial PDF into clean, validated, queryable data | ✅ Shipped |
-| 03 | [**reconcile-and-flag**](week03-add-judgment-recon/) | Bank-to-ledger reconciliation that proves it is complete, and refuses to guess | 🔨 Engine working |
+| 03 | [**reconcile-and-flag**](week03-add-judgment-recon/) | Bank-to-ledger reconciliation that proves it is complete, refuses to guess, and explains what it refused | ✅ Shipped |
 | 04 | **standards-assistant** | RAG assistant over accounting standards, answering with citations | 📋 Planned |
 
 ---
