@@ -1,0 +1,12 @@
+# Deliberately short. Every dependency is a cost paid by every user, and this
+# tool is meant to run for people who are not developers.
+#
+# openpyxl is the only runtime dependency, needed to write the Excel workbook.
+# Reading CSVs, parsing money, matching and the file dialog are all standard
+# library. Notably absent: pandas - this workload is combinatorial group
+# matching and string similarity, not vectorized arithmetic, so pandas and
+# numpy would add ~60MB of install for no gain.
+openpyxl>=3.1.0
+
+# Development only.
+pytest>=8.0.0
