@@ -21,7 +21,69 @@ accounting identities, tested, and traceable back to its source.
 
 ---
 
-## Featured: structure-the-mess
+## Featured: reconcile-and-flag
+
+Every Controller has done a bank reconciliation. The clean matches are a
+spreadsheet formula. The job is the judgment calls — the payment that posted
+three days late, the one deposit covering five invoices, the memo that reads
+`Inv 000012345` on one side and `I12345` on the other, the entry and its
+reversal that cancel each other and belong to nothing.
+
+```
+205 ledger + 205 bank rows  →  167 match groups, 6 open items  →  1,027.21 difference, explained to the cent
+```
+
+**The test data comes before the tool.** You cannot tell whether a
+reconciliation handles the hard cases by pointing it at real bank data, because
+with real data you don't know the right answer either. So the corpus is
+synthetic and every hard case is planted deliberately — eleven scenarios, from
+exact matches through wide date shifts, fuzzy invoice references, many-to-one
+settlement groups, one-sided voids and penny differences. The engine finds all
+eleven, and the only rows it leaves open are the three a side that genuinely
+don't match. Those get confirmed independently, by the fact that they're the
+only rows whose memos contain no document number at all.
+
+**Deterministic where there's a right answer, model where there's judgment.**
+Whether 1,204.55 equals 1,204.55 is arithmetic, so seven ordered rules do all
+the deciding — no model is consulted about any match. Where a rule cannot single
+out one answer, a model explains what the candidates probably are and what to go
+check. It cannot do more than that, and not because it's asked nicely: the tool
+schema it must answer through has three fields — a sentence and two closed
+enums. There is no field for a row id, a pairing, or a verdict, so no response
+it could produce would change a reconciliation. A test asserts that absence,
+because it is the entire argument. (That path is opt-in, and so far exercised
+only against a stubbed client — see the
+[tool README](week03-add-judgment-recon/README.md).)
+
+**It refuses rather than guesses.** Two ledger rows identical in date, amount and
+memo cannot be told apart. Two different subsets that both sum to a deposit give
+no way to know which one settled. In those cases the engine records the
+candidates and moves on. That's a controls judgment, not a technical one: a
+confident wrong match costs more than an item on a reviewer's list, because the
+wrong one never gets revisited.
+
+**The proof is the deliverable, not the output.** Whatever the engine claims, the
+open items plus any penny difference it absorbed have to add back to the
+difference the two files arrived with — to the cent, in integer arithmetic, and
+re-proved after every single pass so a bug lands on the pass that caused it. A
+reconciliation nobody can check is worse than none, because it gets trusted.
+
+**One bug worth reading about.** Sets 6 and 7 require summing two to five ledger
+rows and testing equality against a deposit. In float64, `730.03 + 46.80` is
+`776.8299999999999` — and 5 of the 30 group matches planted in this corpus fail
+that comparison. They fail *silently*: a correct many-to-one match gets reported
+as two unmatched items while the reconciliation still looks entirely reasonable.
+Amounts are integer cents end to end, and the specific failing values are pinned
+in a test. It's the same lesson as week 2's three bugs — the dangerous output is
+the plausible kind.
+
+Open [`data/reconciliation_example.xlsx`](week03-add-judgment-recon/data/reconciliation_example.xlsx)
+next to [`data/non_reconciled.xlsx`](week03-add-judgment-recon/data/non_reconciled.xlsx),
+the same job worked by hand, for the before and after.
+
+---
+
+## Also featured: structure-the-mess
 
 Financial data is published for humans to read, not for machines to use. Want
 to know how much of a company's growth was funded by operations versus debt
