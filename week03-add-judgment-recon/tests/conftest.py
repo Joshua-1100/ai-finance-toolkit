@@ -18,11 +18,14 @@ def corpus_dir() -> Path:
     return ROOT / "data"
 
 
-@pytest.fixture(scope="session")
+# Function-scoped on purpose. Some tests tamper with rows to prove the engine
+# catches it, and a shared instance would leak that damage into other tests.
+# Loading the corpus costs about two milliseconds.
+@pytest.fixture
 def gl(corpus_dir):
     return load_gl(corpus_dir / "general_ledger.csv")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def bank(corpus_dir):
     return load_bank(corpus_dir / "bank.csv")

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections import Counter
 
+from .engine import Result
 from .model import LedgerFile
 from .money import format_cents_grouped
 
@@ -71,8 +72,69 @@ def load_report(gl: LedgerFile, bank: LedgerFile) -> str:
         if len(warnings) > 20:
             out.append(f"  ... and {len(warnings) - 20} more")
 
-    out += ["", RULE, "NEXT", RULE]
-    out.append(f"  {len(gl)} GL rows and {len(bank)} bank rows are enumerated and")
-    out.append("  carry an empty match_id, ready for the matching passes.")
+    return "\n".join(out)
+
+
+def match_report(result: Result) -> str:
+    """What the passes claimed, and whether the difference still foots."""
+    gl_n, bank_n = len(result.gl.rows), len(result.bank.rows)
+    out: list[str] = ["", RULE, "MATCHING", RULE]
+
+    for name, count in result.pass_counts:
+        out.append(f"  {name:<20} {count:>4} match{'' if count == 1 else 'es'}")
+
+    out.append("")
+    out.append(f"  {len(result.matches)} match groups covering "
+               f"{result.matched_gl_count} GL and {result.matched_bank_count} bank rows")
+
+    shapes = Counter(m.shape for m in result.matches)
+    if shapes:
+        pretty = ", ".join(f"{n} x {shape}" for shape, n in sorted(shapes.items()))
+        out.append(f"  shapes: {pretty}")
+
+    quality = Counter((m.amount.value, m.date.value, m.identity.value)
+                      for m in result.matches)
+    if quality:
+        out.append("")
+        out.append(f"  {'amount':<8} {'date':<8} {'identity':<9} {'groups':>6}")
+        for (amount, date_q, identity), n in sorted(quality.items()):
+            out.append(f"  {amount:<8} {date_q:<8} {identity:<9} {n:>6}")
+
+    if result.ambiguities:
+        out += ["", RULE, f"NOT CLAIMED - AMBIGUOUS ({len(result.ambiguities)})", RULE]
+        out.append("  Candidates the passes declined rather than guess between.")
+        for amb in result.ambiguities[:10]:
+            out.append(f"  [{amb.pass_name}] {amb.key}")
+            out.append(f"      GL {', '.join(amb.gl_ids) or '-'}"
+                       f"  vs  BANK {', '.join(amb.bank_ids) or '-'}")
+            out.append(f"      {amb.reason}")
+        if len(result.ambiguities) > 10:
+            out.append(f"  ... and {len(result.ambiguities) - 10} more")
+
+    unmatched_gl_cents = sum(r.amount_cents for r in result.unmatched_gl)
+    unmatched_bank_cents = sum(r.amount_cents for r in result.unmatched_bank)
+
+    out += ["", RULE, "STILL OPEN", RULE]
+    out.append(f"  GL    {len(result.unmatched_gl):>4} of {gl_n} rows"
+               f"   {format_cents_grouped(unmatched_gl_cents):>14}")
+    out.append(f"  Bank  {len(result.unmatched_bank):>4} of {bank_n} rows"
+               f"   {format_cents_grouped(unmatched_bank_cents):>14}")
+
+    out += ["", RULE, "PROOF", RULE]
+    difference = result.gl.total_cents - result.bank.total_cents
+    out.append(f"  unmatched GL less unmatched bank  "
+               f"{format_cents_grouped(unmatched_gl_cents - unmatched_bank_cents):>14}")
+    out.append(f"  drift accepted inside matches     "
+               f"{format_cents_grouped(result.drift_cents):>14}")
+    out.append(f"  {'':<33}{'':->14}")
+    out.append(f"  accounted for                     "
+               f"{format_cents_grouped(unmatched_gl_cents - unmatched_bank_cents + result.drift_cents):>14}")
+    out.append(f"  GL total less bank total          "
+               f"{format_cents_grouped(difference):>14}")
+
+    foots = (unmatched_gl_cents - unmatched_bank_cents + result.drift_cents) == difference
+    out.append("")
+    out.append(f"  {'FOOTS' if foots else 'DOES NOT FOOT'} - the reconciliation is "
+               f"{'complete' if foots else 'INCOMPLETE'}.")
     out.append("")
     return "\n".join(out)

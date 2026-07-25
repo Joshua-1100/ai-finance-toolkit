@@ -10,9 +10,10 @@ import argparse
 import sys
 from pathlib import Path
 
+from .engine import reconcile
 from .load import LoadError, load_bank, load_gl
 from .pick import choose_csv
-from .report import load_report
+from .report import load_report, match_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +52,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(load_report(gl, bank))
+
+    result = reconcile(gl, bank)
+    print(match_report(result))
     return 0
 
 

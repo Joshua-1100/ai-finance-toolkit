@@ -11,7 +11,12 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 
 # Characters that routinely decorate an exported amount and carry no meaning.
-_STRIP = str.maketrans({"$": None, ",": None, " ": None, " ": None, "'": None})
+#   is a non-breaking space, which turns up as a thousands separator in
+# European exports. Written as an escape because an invisible character in
+# source is a trap for whoever reads this next.
+_STRIP = str.maketrans(
+    {"$": None, ",": None, " ": None, " ": None, "'": None}
+)
 
 
 class AmountError(ValueError):

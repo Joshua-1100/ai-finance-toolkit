@@ -11,7 +11,7 @@ reviewing a match, not a key to match on.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from enum import Enum
 
@@ -111,6 +111,21 @@ class LedgerFile:
 
     def unmatched(self) -> list[LedgerRow]:
         return [r for r in self.rows if not r.matched]
+
+    def copy_unmatched(self) -> LedgerFile:
+        """A fresh copy with every match_id cleared.
+
+        Reconciling mutates rows - that is the point of match_id living on the
+        row. But it should not reach back and mutate the caller's data, so the
+        engine works on a copy. That also makes reconcile() safe to run twice.
+        """
+        return LedgerFile(
+            side=self.side,
+            path=self.path,
+            headers=list(self.headers),
+            rows=[replace(r, raw=dict(r.raw), match_id=None) for r in self.rows],
+            warnings=list(self.warnings),
+        )
 
 
 @dataclass
