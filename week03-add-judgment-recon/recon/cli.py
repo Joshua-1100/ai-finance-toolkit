@@ -12,9 +12,16 @@ from pathlib import Path
 
 from .engine import reconcile
 from .excel import OutputLocked, write_workbook
+from .explain import (
+    DEFAULT_LIMIT,
+    DEFAULT_MODEL,
+    ExplainUnavailable,
+    attach,
+    explain_ambiguities,
+)
 from .load import LoadError, load_bank, load_gl
 from .pick import choose_csv, choose_save_path
-from .report import load_report, match_report
+from .report import explanation_report, load_report, match_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,6 +40,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-excel", action="store_true",
         help="report to the console only, write nothing",
+    )
+    parser.add_argument(
+        "--explain", action="store_true",
+        help="ask a model to explain each ambiguity (needs ANTHROPIC_API_KEY)",
+    )
+    parser.add_argument(
+        "--model", default=DEFAULT_MODEL,
+        help=f"model to explain with (default: {DEFAULT_MODEL})",
+    )
+    parser.add_argument(
+        "--explain-limit", type=int, default=DEFAULT_LIMIT,
+        help=f"most ambiguities to explain, one call each (default: {DEFAULT_LIMIT})",
     )
     return parser
 
@@ -65,6 +84,21 @@ def main(argv: list[str] | None = None) -> int:
     result = reconcile(gl, bank)
     print(match_report(result))
 
+    # Explanations come after the reconciliation is complete and proved, and
+    # never feed back into it. A failure here costs the explanations only.
+    explanations: dict = {}
+    if args.explain and result.ambiguities:
+        try:
+            found = explain_ambiguities(
+                result, model=args.model, limit=args.explain_limit,
+            )
+            explanations = attach(result, found)
+            print(explanation_report(found))
+        except ExplainUnavailable as exc:
+            print(f"\n  Explanations skipped: {exc}\n")
+    elif args.explain:
+        print("  Nothing ambiguous to explain.\n")
+
     if args.no_excel:
         return 0
 
@@ -77,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         out_path = choose_save_path(default) if interactive else default
 
     try:
-        written = write_workbook(result, out_path)
+        written = write_workbook(result, out_path, explanations)
     except OutputLocked as exc:
         print(f"\n{exc}\n", file=sys.stderr)
         return 3

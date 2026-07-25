@@ -32,6 +32,27 @@ def test_rejects_junk(raw):
         parse_cents(raw)
 
 
+def test_strips_a_non_breaking_space_separator():
+    """European exports use U+00A0 as a thousands separator.
+
+    Pinned because the escape for it in money.py is easy to mangle when editing
+    - and if it ever becomes a literal invisible character again, or gets lost,
+    this is the test that notices.
+    """
+    assert parse_cents("1" + chr(0xa0) + "204.55") == 120455
+
+
+def test_money_source_has_no_invisible_characters():
+    """An invisible character in source is a trap for the next reader."""
+    from pathlib import Path
+
+    import recon.money
+
+    src = Path(recon.money.__file__).read_text(encoding="utf-8")
+    offenders = {hex(ord(c)) for c in src if ord(c) > 126}
+    assert not offenders, f"non-ASCII in money.py: {sorted(offenders)}"
+
+
 def test_rejects_sub_cent_precision():
     """Silently rounding a third decimal would hide a real data problem."""
     with pytest.raises(AmountError):

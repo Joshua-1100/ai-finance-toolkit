@@ -158,18 +158,38 @@ def _write_exceptions(ws, result: Result) -> None:
 
 # --- Ambiguous -----------------------------------------------------------
 
-AMBIGUOUS_HEADERS = ["pass", "key", "gl_rows", "bank_rows", "why not claimed"]
-AMBIGUOUS_WIDTHS = [18, 34, 26, 26, 46]
+AMBIGUOUS_HEADERS = [
+    "pass", "key", "gl_rows", "bank_rows", "why not claimed",
+    "likely cause", "suggested check", "explanation", "explained by",
+]
+AMBIGUOUS_WIDTHS = [18, 28, 24, 24, 44, 20, 24, 46, 18]
 
 
-def _write_ambiguous(ws, result: Result) -> None:
+def _write_ambiguous(ws, result: Result, explanations: dict | None = None) -> None:
+    """Candidates the engine declined, with the model's read on each.
+
+    The last four columns are advisory. Nothing in them affected a match - the
+    engine had already finished and proved itself before they were written.
+    """
     _write_header(ws, AMBIGUOUS_HEADERS)
+    explanations = explanations or {}
+
     for excel_row, amb in enumerate(result.ambiguities, start=2):
         ws.cell(row=excel_row, column=1, value=amb.pass_name)
         ws.cell(row=excel_row, column=2, value=amb.key)
         ws.cell(row=excel_row, column=3, value=", ".join(amb.gl_ids))
         ws.cell(row=excel_row, column=4, value=", ".join(amb.bank_ids))
         ws.cell(row=excel_row, column=5, value=amb.reason)
+
+        found = explanations.get(f"{amb.pass_name}|{amb.key}")
+        if found is None:
+            continue
+        ws.cell(row=excel_row, column=6, value=found.cause_label)
+        ws.cell(row=excel_row, column=7, value=found.check_label)
+        ws.cell(row=excel_row, column=8, value=found.summary)
+        ws.cell(row=excel_row, column=9,
+                value="not available" if found.failed else found.model)
+
     _finish_table(ws, AMBIGUOUS_HEADERS, AMBIGUOUS_WIDTHS)
 
 
@@ -305,7 +325,9 @@ def _write_summary(ws, result: Result) -> None:
 
 # --- assembly ------------------------------------------------------------
 
-def write_workbook(result: Result, path: str | Path) -> Path:
+def write_workbook(
+    result: Result, path: str | Path, explanations: dict | None = None,
+) -> Path:
     """Write the reconciliation to an .xlsx file and return where it went."""
     path = Path(path)
     wb = Workbook()
@@ -320,7 +342,7 @@ def write_workbook(result: Result, path: str | Path) -> Path:
     # Only when there is something to show. An empty tab would imply the tool
     # had nothing to say, when in fact it had nothing to decline.
     if result.ambiguities:
-        _write_ambiguous(wb.create_sheet("Ambiguous"), result)
+        _write_ambiguous(wb.create_sheet("Ambiguous"), result, explanations)
 
     _write_source(wb.create_sheet("General Ledger"), result, Side.GL)
     _write_source(wb.create_sheet("Bank"), result, Side.BANK)

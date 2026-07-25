@@ -1,0 +1,14 @@
+gl_date,amount,main_memo,line_memo
+2026-05-01,100.00,Celery Washington,Inv 111
+2026-05-01,100.00,Celery Adams,Inv 111
+2026-05-05,10.00,Gabriel Lincoln,Inv 222
+2026-05-05,40.00,Gabriel Grant,Inv 222
+2026-05-05,20.00,Gabriel Hayes,Inv 222
+2026-05-05,30.00,Gabriel Tyler,Inv 222
+2026-05-07,200.00,Harry4021,Inv 333
+2026-05-07,200.00,Harry4022,Inv 333
+2026-05-07,-200.00,Harry4023,Inv 333
+2026-05-02,300.00,Apple Monroe,Inv 444
+2026-05-09,300.00,Apple Polk,Inv 444
+2026-05-04,500.05,Meyer Taft,Inv 555
+2026-05-04,500.03,Meyer Wilson,Inv 555

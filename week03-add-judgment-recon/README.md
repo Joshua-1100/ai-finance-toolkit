@@ -210,6 +210,51 @@ zeros. String-similarity scoring would generalise further, but a reviewer can
 check this rule by reading it and cannot check a distance threshold. Numbers
 under three digits are ignored as too weak to act on.
 
+## Where the model comes in
+
+Refusing to guess is correct, and on its own not very helpful — a reviewer gets
+row ids and a sentence about why the tool gave up. So the ambiguities, and only
+the ambiguities, get handed to a model:
+
+```bash
+python run_recon.py --gl data/ambiguous_gl.csv --bank data/ambiguous_bank.csv --explain
+```
+
+It writes one sentence on what the candidates probably are, plus a likely cause
+and a suggested check drawn from closed lists. That lands in the workbook's
+**Ambiguous** tab beside the engine's own reason.
+
+This is the one place in the tool where a model is involved, and it is fenced
+three ways:
+
+**It cannot make a match.** The tool schema has three fields — a sentence, a
+cause from a closed enum, a check from a closed enum. There is no field for a
+row id, a pairing, or a verdict, so no response it could produce would resolve
+an ambiguity. `strict: true` means the API enforces that rather than the prompt
+asking nicely. There's a test asserting the schema contains no
+match-shaped field, because that property is the whole argument.
+
+**It cannot misattribute.** One call per ambiguity, bound to its ambiguity by
+position in our loop. Nothing the model returns is used to look anything up.
+
+**It cannot break the reconciliation.** Explanations are generated after the
+recon is complete and proved. No API key, no SDK, a network failure, a refusal —
+each costs you the explanations and nothing else. The recon output is identical.
+
+Memo text arrives from a bank export, so it is untrusted input. It's passed as
+delimited data and the model is told to treat it as data — but the real
+protection is structural: if a memo contained instructions and the model obeyed
+them, the worst reachable outcome is a wrong sentence in a spreadsheet column,
+because the enums are closed and the prose is never matched on or executed.
+
+`--explain` needs `pip install anthropic` and an `ANTHROPIC_API_KEY`. One call
+per ambiguity, capped at 25 by default (`--explain-limit`).
+
+> **Not yet verified against the live API.** Every test runs offline against a
+> fake client — including the failure paths — but no real call has been made
+> from this repo. Treat the request shape as unproven until you've run it once
+> with a key.
+
 **Group matching is bucketed, not brute-forced.** Unconstrained subset-sum over
 ten thousand rows is not a computation anyone finishes. Narrowing to the handful
 of rows sharing a date and reference makes it immediate. Buckets above twelve

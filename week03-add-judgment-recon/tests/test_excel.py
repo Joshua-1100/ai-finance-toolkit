@@ -61,9 +61,12 @@ def test_ambiguous_tab_appears_when_a_pass_declines(tmp_path):
     ws = wb["Ambiguous"]
     assert [c.value for c in ws[1]] == [
         "pass", "key", "gl_rows", "bank_rows", "why not claimed",
+        "likely cause", "suggested check", "explanation", "explained by",
     ]
     assert ws.cell(row=2, column=3).value == "GL-0001, GL-0002"
     assert "indistinguishable" in ws.cell(row=2, column=5).value
+    # No explanations were passed, so the advisory columns stay empty.
+    assert all(ws.cell(row=2, column=c).value is None for c in (6, 7, 8, 9))
 
 
 def test_tables_are_filterable_and_frozen(workbook):

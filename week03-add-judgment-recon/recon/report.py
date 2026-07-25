@@ -9,8 +9,10 @@ the reconciliation is wrong.
 from __future__ import annotations
 
 from collections import Counter
+from typing import Sequence
 
 from .engine import Result
+from .explain import Explanation
 from .model import LedgerFile
 from .money import format_cents_grouped
 
@@ -137,4 +139,32 @@ def match_report(result: Result) -> str:
     out.append(f"  {'FOOTS' if foots else 'DOES NOT FOOT'} - the reconciliation is "
                f"{'complete' if foots else 'INCOMPLETE'}.")
     out.append("")
+    return "\n".join(out)
+
+
+def explanation_report(explanations: Sequence[Explanation]) -> str:
+    """The model's read on each declined candidate. Advisory, never decisive."""
+    if not explanations:
+        return ""
+
+    worked = [e for e in explanations if not e.failed]
+    out: list[str] = ["", RULE, f"EXPLAINED ({len(worked)} of {len(explanations)})", RULE]
+    out.append("  A model's read on what each declined candidate probably is.")
+    out.append("  Advisory only - no explanation changed a match.")
+    out.append("")
+
+    for e in explanations:
+        gl = ", ".join(e.gl_ids) or "-"
+        bank = ", ".join(e.bank_ids) or "-"
+        out.append(f"  [{e.pass_name}] GL {gl}  vs  BANK {bank}")
+        if e.failed:
+            out.append(f"      {e.summary}")
+        else:
+            out.append(f"      cause: {e.cause_label}   check: {e.check_label}")
+            out.append(f"      {e.summary}")
+        out.append("")
+
+    if worked:
+        out.append(f"  Explained by {worked[0].model}.")
+        out.append("")
     return "\n".join(out)
