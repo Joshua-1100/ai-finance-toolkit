@@ -18,10 +18,15 @@ dialogs on reruns, or `--no-excel` for the console report alone.
 
 ## What you get
 
-[`data/reconciliation.xlsx`](data/reconciliation.xlsx) is committed as a worked
-example — the output of running the tool against the corpus in this repo. Open it
-beside [`data/non_reconciled.xlsx`](data/non_reconciled.xlsx), the same job done
-by hand, for the before and after.
+[`data/reconciliation_example.xlsx`](data/reconciliation_example.xlsx) is
+committed as a worked example — the output of running the tool against the corpus
+in this repo. Open it beside
+[`data/non_reconciled.xlsx`](data/non_reconciled.xlsx), the same job done by
+hand, for the before and after.
+
+Your own runs write to `data/reconciliation.xlsx` by default, which is
+gitignored — the Summary tab stamps its generation time, so otherwise every run
+would look like a change to a committed file.
 
 | Tab | What it holds |
 |---|---|

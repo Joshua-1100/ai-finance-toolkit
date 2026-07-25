@@ -16,7 +16,7 @@ accounting identities, tested, and traceable back to its source.
 |---|---|---|---|
 | 01 | [**first-integration**](week01-first-integration/) | OAuth into a live accounting system, pull real ledger data into pandas | ✅ Shipped |
 | 02 | [**structure-the-mess**](week02-structure-the-mess/) | Turn a quarterly financial PDF into clean, validated, queryable data | ✅ Shipped |
-| 03 | **reconcile-and-flag** | Bank-to-ledger reconciliation with AI-explained anomaly flagging | 🔜 In progress |
+| 03 | [**reconcile-and-flag**](week03-add-judgment-recon/) | Bank-to-ledger reconciliation that proves it is complete, and refuses to guess | 🔨 Engine working |
 | 04 | **standards-assistant** | RAG assistant over accounting standards, answering with citations | 📋 Planned |
 
 ---
@@ -101,6 +101,18 @@ python -m structure_the_mess.cli data/supplement.pdf --no-llm --html
 No API key needed for that run — it uses the deterministic path. You should see
 118/118 checks pass and get a standalone HTML report.
 
+Or, for the shortest path to something you can open in Excel:
+
+```bash
+cd week03-add-judgment-recon
+pip install -r requirements.txt
+python run_recon.py --gl data/general_ledger.csv --bank data/bank.csv
+```
+
+One small dependency, no API key, no source PDF. It reconciles 205 ledger rows
+against 205 bank rows, resolves every one but the three that genuinely do not
+match, and proves the result foots to the cent.
+
 ---
 
 ## Layout
@@ -109,6 +121,7 @@ No API key needed for that run — it uses the deterministic path. You should se
 ai-finance-toolkit/
 ├── week01-first-integration/     # live accounting system → pandas
 ├── week02-structure-the-mess/    # messy PDF → validated structured data
+├── week03-add-judgment-recon/    # ledger + bank → reconciled Excel workbook
 ├── .env.example
 └── README.md
 ```
@@ -117,7 +130,7 @@ ai-finance-toolkit/
 
 ## Stack
 
-Python · pandas · DuckDB · pdfplumber · Pydantic · Anthropic API · pytest
+Python · pandas · DuckDB · pdfplumber · Pydantic · openpyxl · Anthropic API · pytest
 
 ---
 

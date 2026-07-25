@@ -5,8 +5,13 @@ __pycache__/
 .pytest_cache/
 
 # The synthetic corpus in data/ is intentionally NOT ignored - committing it
-# makes the repo self-demoing, and it is generated, not sensitive.
-# Reconciliation output is:
+# makes the repo self-demoing, and it is generated, not sensitive. Nor is
+# data/reconciliation_example.xlsx, the committed worked example.
+#
+# But the default output name is ignored, because the Summary tab stamps the
+# time it was generated - so every run would otherwise show up as a change to a
+# committed file.
+data/reconciliation.xlsx
 output/
 *.recon.csv
 *.recon.html
