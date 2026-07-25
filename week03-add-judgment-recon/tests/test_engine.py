@@ -24,24 +24,13 @@ from recon.model import (
     LedgerRow,
     Side,
 )
-from recon.passes import DEFAULT_PASSES, exact_triple
+from recon.passes import exact_triple
 
+from .helpers import make_file
 
-def make_row(side, n, day, cents, memo):
-    prefix = "GL" if side is Side.GL else "BK"
-    return LedgerRow(
-        side=side,
-        row_id=f"{prefix}-{n:04d}",
-        source_row=n + 1,
-        txn_date=date(2026, 5, day),
-        amount_cents=cents,
-        memo=memo,
-    )
-
-
-def make_file(side, specs):
-    rows = [make_row(side, i, d, c, m) for i, (d, c, m) in enumerate(specs, 1)]
-    return LedgerFile(side=side, path=f"<{side.value}>", headers=[], rows=rows)
+# Pinned explicitly rather than taken from DEFAULT_PASSES: these tests are
+# about pass 1 in isolation, and should not change meaning as the ladder grows.
+ONLY_EXACT_TRIPLE = [MatchPass("exact_triple", "pass 1 alone", exact_triple)]
 
 
 # --- the proof -----------------------------------------------------------
@@ -142,7 +131,7 @@ def test_match_ids_are_sequential_from_one(gl, bank):
 
 def test_exact_triple_claims_set_one_only(gl, bank):
     """Set 1 planted 50 exact matches. Pass 1 should find those and stop."""
-    result = reconcile(gl, bank, passes=DEFAULT_PASSES)
+    result = reconcile(gl, bank, passes=ONLY_EXACT_TRIPLE)
     assert result.pass_counts == [("exact_triple", 50)]
     assert len(result.matches) == 50
     assert result.matched_gl_count == 50
@@ -150,7 +139,7 @@ def test_exact_triple_claims_set_one_only(gl, bank):
 
 
 def test_exact_triple_matches_are_all_exact_on_three_axes(gl, bank):
-    result = reconcile(gl, bank, passes=DEFAULT_PASSES)
+    result = reconcile(gl, bank, passes=ONLY_EXACT_TRIPLE)
     for m in result.matches:
         assert m.amount is AmountQuality.EXACT
         assert m.date is DateQuality.EXACT
@@ -161,8 +150,8 @@ def test_exact_triple_matches_are_all_exact_on_three_axes(gl, bank):
 
 def test_exact_triple_pairs_agree_on_all_three_fields(gl, bank):
     """Independently re-check every claim rather than trusting the pass."""
-    result = reconcile(gl, bank, passes=DEFAULT_PASSES)
-    rows = {r.row_id: r for r in list(gl.rows) + list(bank.rows)}
+    result = reconcile(gl, bank, passes=ONLY_EXACT_TRIPLE)
+    rows = {r.row_id: r for r in list(result.gl.rows) + list(result.bank.rows)}
     for m in result.matches:
         g, b = rows[m.gl_ids[0]], rows[m.bank_ids[0]]
         assert g.txn_date == b.txn_date
