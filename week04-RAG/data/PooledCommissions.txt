@@ -1,0 +1,34 @@
+GLOBAL ENTERPRISE TECHNOLOGIES, INC.
+SALES COMPENSATION PLAN ADDENDUM: REGIONAL BONUS POOL
+
+1. PURPOSE & OVERVIEW
+This addendum outlines the terms governing the Regional Performance Bonus Pool ("The Pool"). The Pool is designed to incentivize collaborative, multi-touch team selling and regional market expansion. It rewards eligible participants for collective regional success rather than isolated individual contract execution.
+
+2. ELIGIBILITY & PARTICIPANTS
+Eligible participants include Regional Account Executives (AEs), Sales Development Representatives (SDRs), and Solutions Engineers assigned to the respective geographic territory. To participate in a quarterly pool distribution, the employee must be active and in good standing on the final business day of the applicable performance period.
+
+3. FUNDING MECHANISM OF THE POOL
+The Pool is funded globally at the corporate level based on total New Annual Recurring Revenue (New ARR) closed across the entire region during the quarter. 
+- The Pool allocates an amount equal to 3.5% of all regional New ARR generated during the quarter, provided the region achieves at least 85% of its aggregate quarterly quota.
+- If regional quota attainment falls below 85%, the pool is funded at 0%.
+- If regional quota attainment exceeds 100%, an accelerator multiplier of 1.5x is applied to the pool funding rate (increasing the funding rate to 5.25% for all revenue generated above the quota threshold).
+
+4. ALLOCATION AND DISBURSEMENT LOGIC
+The accumulated Pool funds are not tied to any single, specific customer contract. Instead, the total pool is aggregated at the end of the quarter and distributed to eligible participants using a Hybrid Allocation Method:
+- Base Weighting (60% of the Pool): Distributed proportionally based on each participant’s base salary relative to the total base payroll of the eligible regional team.
+- Performance Weighting (40% of the Pool): Distributed based on individual Management by Objectives (MBO) attainment scores, evaluated by regional leadership at the end of the quarter.
+
+5. PAYOUT FREQUENCY AND CLAWBACKS
+Pool distributions are calculated and paid out 45 days following the close of each calendar quarter. In the event that a customer contract contributing to the quota threshold defaults or terminates within the first 180 days of service, the calculated pool value will be retroactively adjusted, and the overpayment will be clawed back from the subsequent quarter's pool funding.
+
+ADDENDUM
+1. PURPOSE & OVERVIEW (SaaS Alignment)
+This addendum applies exclusively to the sale of SaaS Subscription Licenses ("The Software Service") with a mandatory initial Term of twelve (12) months. The plan establishes compensation parameters for both Initial Terms and subsequent Renewal Option periods.
+
+3. FUNDING MECHANISM & RENEWAL STRATIFICATION
+The Pool is funded based on contract stratification rules to match the long-term economic benefit of the SaaS subscription lifecycle:
+
+- INITIAL TERMS (Year 1): The Pool allocates an amount equal to 3.5% of New Annual Recurring Revenue (New ARR) closed for the initial 12-month contract period.
+
+- RENEWAL OPTIONS (Year 2+): Customers executing Year 1 contracts receive a contractually guaranteed option to renew the Software Service for an additional 12-month period at a 15% discount relative to the Year 1 list price. Because this renewal requires minimal sales friction, the Pool for Renewal Contract Value (Renew ARR) is funded at a significantly reduced rate of 0.5% of the renewed contract value.
+

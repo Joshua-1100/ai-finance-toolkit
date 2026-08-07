@@ -1,0 +1,9 @@
+Act as an expert SaaS Technical Accounting Director and CPA. Analyze the uploaded Pooled Commission Plan, specifically focusing on the 12-month contract term and the 15% contractual renewal discount option. Provide an audit-ready technical memorandum addressing:
+
+1. MATERIAL RIGHT & AMORTIZATION PERIOD: Under ASC 340-40, evaluate whether the 15% renewal discount constitutes a "material right" for the customer. Based on this, should the capitalized pooled commission asset be amortized strictly over the initial 12-month contract term, or must it be amortized over a longer Estimated Period of Benefit (EPB)? 
+
+2. RENEWAL COMMISSION DISPROPORTION: Section 3 notes that initial commissions are funded at 3.5%, while renewal commissions are funded at 0.5%. Under ASC 340-40-25-4, is the renewal commission considered "commensurate with" the initial commission? How does this disproportion affect our ability to expense the commission over the 1-year contract life versus forcing a 3-to-5 year capitalization amortization schedule?
+
+3. PRACTICAL EXPEDIENT ELIGIBILITY: Can we safely apply the ASC 340-40 practical expedient to expense these pooled commissions immediately since the initial contract term is exactly one year, or does the 15% renewal discount/material right disqualify us from using the expedient?
+
+4. REVENUE ALLOCATION BALANCE: Draft the specific disclosure note text we would include in our financial statement footnotes to explain our amortization policy for this SaaS pooled commission asset.
